@@ -1,238 +1,614 @@
-<?php 
-/*
-Plugin Name: Contact Form Builder
-Plugin URI: http://cmsmasters.net/
-Description: Contact form builder created by <a href="http://themeforest.net/user/cmsmasters/portfolio" title="cmsmasters">cmsmasters</a>. Contact form plugin with visual form builder, shortcode, widget for <a href="http://themeforest.net/user/cmsmasters/portfolio" title="cmsmasters">cmsmasters</a> WordPress themes.
-Version: 1.0.1
-Author: cmsmasters
-Author URI: http://cmsmasters.net/
-License: GPL2
-*/
-
-/*  Copyright 2012 cmsmasters (email : cmsmstrs@gmail.com)
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License, version 2, as 
-    published by the Free Software Foundation.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-*/
-
-
-define('CMSMS_FORM_BUILDER_PATH', plugin_dir_path(__FILE__));
-define('CMSMS_FORM_BUILDER_URL', plugin_dir_url(__FILE__));
-
-
-$form_handle = 'form-builder';
-
-
-require_once(CMSMS_FORM_BUILDER_PATH . 'inc/form-builder-shortcode.php');
-require_once(CMSMS_FORM_BUILDER_PATH . 'inc/form-builder-widget.php');
-
-
-function form_builder_database() {
-	$active_theme = wp_get_theme();
-	
-	if (is_admin() && strip_tags($active_theme->Author) === 'cmsmasters') {
-		require_once(CMSMS_FORM_BUILDER_PATH . 'inc/form-builder-database.php');
-		
-		register_activation_hook(__FILE__, 'form_builder_install');
-		
-		register_uninstall_hook(__FILE__, 'form_builder_uninstall');
-	}
-}
-
-form_builder_database();
-
-
-function form_builder_scripts() {
-	global $form_handle;
-	
-	
-	wp_register_style('cmsms_form_builder_css', CMSMS_FORM_BUILDER_URL . 'css/contact-form-builder.css', array(), '1.3.0', 'screen');
-	wp_register_style('cmsms_form_builder_css_rtl', CMSMS_FORM_BUILDER_URL . 'css/contact-form-builder-rtl.css', array(), '1.3.0', 'screen');
-	wp_register_style('cmsms_contact_form_style', CMSMS_FORM_BUILDER_URL . 'css/contact-form-style.css', array(), '1.0.0', 'screen');
-	wp_register_style('cmsms_contact_form_style_rtl', CMSMS_FORM_BUILDER_URL . 'css/contact-form-style-rtl.css', array(), '1.0.0', 'screen');
-	
-	wp_register_script('cmsms_form_builder_js', CMSMS_FORM_BUILDER_URL . 'js/contact-form-builder.js', array('jquery', 'jquery-ui-sortable'), '1.3.0', true);
-	wp_register_script('validator', CMSMS_FORM_BUILDER_URL . 'js/jquery.validationEngine.min.js', array('jquery'), '2.2.4', true);
-	wp_register_script('validatorLanguage', CMSMS_FORM_BUILDER_URL . 'js/jquery.validationEngine-lang.php', array('jquery', 'validator'), '1.0.0', true);
-	
-	
-	if (is_admin() && isset($_GET['page']) && $_GET['page'] == $form_handle) {
-		wp_enqueue_style('cmsms_form_builder_css');
-		
-		if (is_rtl()) {
-			wp_enqueue_style('cmsms_form_builder_css_rtl');
-		}
-		
-		wp_enqueue_script('jquery-ui-sortable');
-		wp_enqueue_script('cmsms_form_builder_js');
-	}
-}
-
-add_action('init', 'form_builder_scripts');
-
-
-function cmsmasters_form_builder() {
-	global $wpdb;
-?>
-	<div class="wrap" style="position:relative; overflow:hidden;">
-		<?php screen_icon('themes'); ?>
-		<h2 style="padding-top:12px;"><?php _e('Contact Form Builder', 'cmsmasters_form_builder'); ?></h2>
-	</div>
-	<div id="settings_save" class="updated fade below-h2 myadminpanel" style="display:none;"><p><strong><?php _e('Form settings succesfully saved.', 'cmsmasters_form_builder'); ?>.</strong></p></div>
-	<div id="settings_error" class="error fade below-h2 myadminpanel" style="display:none;"><p><strong><?php _e('Form succesfully deleted.', 'cmsmasters_form_builder'); ?>.</strong></p></div>
-	<div class="slider wrap">
-		<div class="bot">
-			<div class="rght form_builder_mp">
-				<form method="post" action="" id="adminoptions_form">
-					<div id="form_choose_tab" class="tabb top">
-						<table class="form-table cmsmasters-options">
-							<tr>
-								<td>
-									<input type="hidden" name="loader_image_url" value="<?php echo CMSMS_FORM_BUILDER_URL; ?>" />
-									<input class="button add" type="button" name="add_form" value="<?php _e('Add New', 'cmsmasters_form_builder'); ?>" />
-									<input class="button" type="button" name="cancel_form" value="<?php _e('Cancel', 'cmsmasters_form_builder'); ?>" />
-									<div class="fr">
-										<img class="submit_loader" src="<?php echo CMSMS_FORM_BUILDER_URL; ?>img/wpspin_light.gif" alt="<?php _e('Loading', 'cmsmasters_form_builder'); ?>" />
-									</div>
-									<select id="form_choose" class="fl">
-										<option value=""><?php _e('Select your form here', 'cmsmasters_form_builder'); ?></option>
-									<?php
-										$get_forms = $wpdb->get_results("SELECT * FROM " . $wpdb->prefix . "cmsms_forms WHERE type='form'");
-										
-										foreach ($get_forms as $form) {
-											$val = $form->slug;
-											$name = $form->label;
-											
-											echo '<option value="' . $val . '">' . $name . '</option>';
-										}
-									?>
-									</select>
-									<input class="button edit fl" type="button" name="edit_form" value="<?php _e('Edit', 'cmsmasters_form_builder'); ?>" />
-									<div class="fl">
-										<img class="submit_loader" src="<?php echo CMSMS_FORM_BUILDER_URL; ?>img/wpspin_light.gif" alt="<?php _e('Loading', 'cmsmasters_form_builder'); ?>" />
-									</div>
-									<div class="fl">
-										<input class="button delete fl" type="button" name="delete_form" value="<?php _e('Delete', 'cmsmasters_form_builder'); ?>" />
-										<div class="fl">
-											<img class="submit_loader" src="<?php echo CMSMS_FORM_BUILDER_URL; ?>img/wpspin_light.gif" alt="<?php _e('Loading', 'cmsmasters_form_builder'); ?>" />
-										</div>
-									</div>
-									<div class="fl">
-										<input class="button" type="button" name="save_as_form" value="<?php _e('Save As...', 'cmsmasters_form_builder'); ?>" />
-										<div class="fl">
-											<img class="submit_loader" src="<?php echo CMSMS_FORM_BUILDER_URL; ?>img/wpspin_light.gif" alt="<?php _e('Loading', 'cmsmasters_form_builder'); ?>" />
-										</div>
-									</div>
-								</td>
-							</tr>
-							<tr><td style="padding:0; margin:0;"></td></tr>
-						</table>
-					</div>
-					<div class="clsep">
-						<div id="form_build_tab" class="tabb bot"></div>
-					</div>
-				</form>
-			</div>
-		</div>
-	</div>
-	<div class="cmsms_translates dn">
-		<div class="enter_form_name"><?php _e('Enter Form Name!', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_mess_text"><?php _e('Enter your message text!', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_mess_subj"><?php _e('Enter your message subject text!', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_success_text"><?php _e('Enter the text about your message successfully sending!', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_field_labels"><?php _e('Please fill all field labels!', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_field_options"><?php _e('Please fill all field options!', 'cmsmasters_form_builder'); ?></div>
-		<div class="error_on_page"><?php _e('Error on page! Please reload page and try again.', 'cmsmasters_form_builder'); ?></div>
-		<div class="form_name_exists"><?php _e('Form with this name already exists, try another name.', 'cmsmasters_form_builder'); ?></div>
-		<div class="form_saving_error"><?php _e('Form saving error was detected! Please try again.', 'cmsmasters_form_builder'); ?></div>
-		<div class="save_form_as"><?php _e("It is no form with this name in your database. \nSave this form as", 'cmsmasters_form_builder'); ?></div>
-		<div class="new_form_name"><?php _e('Please enter new form name.', 'cmsmasters_form_builder'); ?></div>
-		<div class="form_name_invalid"><?php _e('Form name is invalid.', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_text"><?php _e('Text', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_field_label"><?php _e('Field Label', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_required"><?php _e('Required', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_field_descr"><?php _e('Field Description', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_field_opts"><?php _e('Field Options', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_min_text_size"><?php _e('Min text size', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_max_text_size"><?php _e('Max text size', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_choose_verif"><?php _e('Choose verification', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_email"><?php _e('Email', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_url"><?php _e('URL', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_number"><?php _e('Number', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_only_nb_sp"><?php _e("Only Numbers & Spaces", 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_only_lt_sp"><?php _e("Only Letters & Spaces", 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_items"><?php _e('Items', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_label"><?php _e('Label', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_thank_you"><?php _e("Thank You! \nYour message has been sent successfully.", 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_form_subj"><?php _e('Form Subject', 'cmsmasters_form_builder'); ?></div>
-		<div class="your_mess_text"><?php _e('Your message text...', 'cmsmasters_form_builder'); ?></div>
-		<div class="form_del_error"><?php _e("Form deleting error was detected! \nIt is no such form in your database.", 'cmsmasters_form_builder'); ?></div>
-		<div class="del_the_form_first"><?php _e('Are you sure you want to delete the form', 'cmsmasters_form_builder'); ?></div>
-		<div class="del_the_form_last"><?php _e('and all the fields it contains?', 'cmsmasters_form_builder'); ?></div>
-		<div class="please_choose_form"><?php _e('Please choose form!', 'cmsmasters_form_builder'); ?></div>
-		<div class="want_to_proceed"><?php _e("All unsaved changes will be lost! \nDo you want to proceed?", 'cmsmasters_form_builder'); ?></div>
-		<div class="error_was_detect"><?php _e("Error was detected! \nIt is no such form in your database.", 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_form_name"><?php _e('Form Name', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_drag_and_drop"><?php _e("Drag & Drop to change fields order", 'cmsmasters_form_builder'); ?></div>
-		<div class="add_remove_edit"><?php _e('Add / Remove / Edit Fields', 'cmsmasters_form_builder'); ?></div>
-		<div class="add_new_field"><?php _e('Add New Field', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_text_field"><?php _e('Text Field', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_email_field"><?php _e('Email Field', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_text_area"><?php _e('Text Area', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_dropdown"><?php _e('Dropdown', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_radiobuttons"><?php _e('Radiobuttons', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_checkbox"><?php _e('Checkbox', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_checkboxes"><?php _e('Checkboxes', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_mess_comp"><?php _e('Message Composer', 'cmsmasters_form_builder'); ?></div>
-		<div class="the_mess_subj"><?php _e('The Message Subject', 'cmsmasters_form_builder'); ?></div>
-		<div class="the_mess_button"><?php _e('Submit Button Text', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_form_button"><?php _e('Send Message', 'cmsmasters_form_builder'); ?></div>
-		<div class="success_send_text"><?php _e('The Message About Succesful Sending Text', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_use_captcha"><?php _e('Use CAPTCHA', 'cmsmasters_form_builder'); ?></div>
-		<div class="add_reset_button"><?php _e('Add Reset Button', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_save_form"><?php _e('Save Form', 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_loading"><?php _e('Loading', 'cmsmasters_form_builder'); ?></div>
-		<div class="form_not_saved"><?php _e('Form not saved! Form name is invalid.', 'cmsmasters_form_builder'); ?></div>
-		<div class="enter_valid_number"><?php _e('Please enter valid number.', 'cmsmasters_form_builder'); ?></div>
-		<div class="choose_field_type"><?php _e('Please choose field type!', 'cmsmasters_form_builder'); ?></div>
-		<div class="del_this_field"><?php _e('Are you sure you want to delete this field?', 'cmsmasters_form_builder'); ?></div>
-		<div class="field_del_error"><?php _e("Field deleting error was detected! \nIt is no such field in your database.", 'cmsmasters_form_builder'); ?></div>
-		<div class="del_this_option"><?php _e('Are you sure you want to delete this option?', 'cmsmasters_form_builder'); ?></div>
-		<div class="less_two_options"><?php _e("Here can't be less than 2 options!", 'cmsmasters_form_builder'); ?></div>
-		<div class="cmsms_field"><?php _e('Field', 'cmsmasters_form_builder'); ?></div>
-		<div class="settings_lost"><?php _e("All unsaved changes will be lost! \nAre you sure you want to leave this page?", 'cmsmasters_form_builder'); ?></div>
-	</div>
 <?php
+/**
+ * Plugin Name: Contact Form Builder
+ * Plugin URI: http://web-dorado.com/products/wordpress-contact-form-builder.html
+ * Description: Contact Form Builder is an advanced plugin to add contact forms into your website. It comes along with multiple default templates which can be customized.
+ * Version: 1.0.34
+ * Author: WebDorado
+ * Author URI: http://web-dorado.com/
+ * License: GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
+ */
+define('WD_CFM_DIR', WP_PLUGIN_DIR . "/" . plugin_basename(dirname(__FILE__)));
+define('WD_CFM_URL', plugins_url(plugin_basename(dirname(__FILE__))));
+
+// Plugin menu.
+function contact_form_maker_options_panel() {
+  add_menu_page('CForm Builder', 'CForm Builder', 'manage_options', 'manage_cfm', 'contact_form_maker', WD_CFM_URL . '/images/contact_form_maker_logo16.png');
+
+  $manage_page = add_submenu_page('manage_cfm', __('Manager', 'contact_form_maker'), __('Manager', 'contact_form_maker'), 'manage_options', 'manage_cfm', 'contact_form_maker');
+  add_action('admin_print_styles-' . $manage_page, 'contact_form_maker_manage_styles');
+  add_action('admin_print_scripts-' . $manage_page, 'contact_form_maker_manage_scripts');
+
+  $submissions_page = add_submenu_page('manage_cfm', __('Submissions', 'contact_form_maker'), __('Submissions', 'contact_form_maker'), 'manage_options', 'submissions_cfm', 'contact_form_maker');
+
+  $blocked_ips_page = add_submenu_page('manage_cfm', __('Blocked IPs', 'contact_form_maker'),  __('Blocked IPs', 'contact_form_maker'), 'manage_options', 'blocked_ips_cfm', 'contact_form_maker');
+  add_action('admin_print_styles-' . $blocked_ips_page, 'contact_form_maker_manage_styles');
+  add_action('admin_print_scripts-' . $blocked_ips_page, 'contact_form_maker_manage_scripts');
+
+  $themes_page = add_submenu_page('manage_cfm', __('Themes', 'contact_form_maker'),  __('Themes', 'contact_form_maker'), 'manage_options', 'themes_cfm', 'contact_form_maker');
+
+  $licensing_plugins_page = add_submenu_page('manage_cfm', __('Get Pro', 'contact_form_maker'), __('Get Pro', 'contact_form_maker'), 'manage_options', 'licensing_cfm', 'contact_form_maker');
+  add_action('admin_print_styles-' . $licensing_plugins_page, 'contact_form_maker_licensing_styles');
+
+  add_submenu_page('manage_cfm', __('Featured Plugins', 'contact_form_maker'), __('Featured Plugins', 'contact_form_maker'), 'manage_options', 'featured_plugins_cfm', 'cfm_featured');
+  add_submenu_page('manage_cfm', __('Featured Themes', 'contact_form_maker'), __('Featured Themes', 'contact_form_maker'), 'manage_options', 'featured_themes_cfm', 'wds_featured_themes');
+
+  $uninstall_page = add_submenu_page('manage_cfm', __('Uninstall', 'contact_form_maker'),  __('Uninstall', 'contact_form_maker'), 'manage_options', 'uninstall_cfm', 'contact_form_maker');
+  add_action('admin_print_styles-' . $uninstall_page, 'contact_form_maker_styles');
+  add_action('admin_print_scripts-' . $uninstall_page, 'contact_form_maker_scripts');
+}
+add_action('admin_menu', 'contact_form_maker_options_panel');
+
+function contact_form_maker() {
+  if (function_exists('current_user_can')) {
+    if (!current_user_can('manage_options')) {
+      die('Access Denied');
+    }
+  }
+  else {
+    die('Access Denied');
+  }
+  require_once(WD_CFM_DIR . '/framework/WDW_CFM_Library.php');
+  $page = WDW_CFM_Library::get('page');
+  if (($page != '') && (($page == 'manage_cfm') || ($page == 'submissions_cfm') || ($page == 'blocked_ips_cfm') || ($page == 'themes_cfm') || ($page == 'licensing_cfm') || ($page == 'uninstall_cfm') || ($page == 'CFMShortcode'))) {
+    require_once (WD_CFM_DIR . '/admin/controllers/CFMController' . ucfirst(strtolower($page)) . '.php');
+    $controller_class = 'CFMController' . ucfirst(strtolower($page));
+    $controller = new $controller_class();
+    $controller->execute();
+  }
 }
 
-function cmsmasters_enable_form_builder() {
-	global $form_handle;
-	
-	
-	add_menu_page( 
-		__('Form Builder', 'cmsmasters_form_builder'), 
-		__('Form Builder', 'cmsmasters_form_builder'), 
-		'edit_themes', 
-		$form_handle, 
-		'cmsmasters_form_builder', 
-		'', 
-		112 
-	);
+function cfm_featured() {
+  if (function_exists('current_user_can')) {
+    if (!current_user_can('manage_options')) {
+      die('Access Denied');
+    }
+  }
+  else {
+    die('Access Denied');
+  }
+  require_once(WD_CFM_DIR . '/featured/featured.php');
+  wp_register_style('cfm_featured', WD_CFM_URL . '/featured/style.css', array(), get_option("wd_contact_form_maker_version"));
+  wp_print_styles('cfm_featured');
+  spider_featured('contact_form_bulder');
 }
 
-add_action('admin_menu', 'cmsmasters_enable_form_builder');
+function cfm_featured_themes() {
+  if (function_exists('current_user_can')) {
+    if (!current_user_can('manage_options')) {
+      die('Access Denied');
+    }
+  }
+  else {
+    die('Access Denied');
+  }
+  require_once(WD_CFM_DIR . '/featured/featured_themes.php');
+  wp_register_style('cfm_featured_themes', WD_CFM_URL . '/featured/themes_style.css', array(), get_option("wd_contact_form_maker_version"));
+  wp_print_styles('cfm_featured_themes');
+  spider_featured_themes();
+}
 
+add_action('wp_ajax_ContactFormMakerPreview', 'contact_form_maker_ajax');
+add_action('wp_ajax_ContactFormmakerwdcaptcha', 'contact_form_maker_ajax'); // Generete captcha image and save it code in session.
+add_action('wp_ajax_nopriv_ContactFormmakerwdcaptcha', 'contact_form_maker_ajax'); // Generete captcha image and save it code in session for all users.
 
-// Load Plugin Local File
-load_plugin_textdomain('cmsmasters_form_builder', false, dirname(plugin_basename(__FILE__)) . '/languages/');
+function contact_form_maker_ajax() {
+  require_once(WD_CFM_DIR . '/framework/WDW_CFM_Library.php');
+  $page = WDW_CFM_Library::get('action');
+  if ($page != 'ContactFormmakerwdcaptcha') {
+    if (function_exists('current_user_can')) {
+      if (!current_user_can('manage_options')) {
+        die('Access Denied');
+      }
+    }
+    else {
+      die('Access Denied');
+    }
+  }
+  if ($page != '') {
+    require_once (WD_CFM_DIR . '/admin/controllers/CFMController' . ucfirst($page) . '.php');
+    $controller_class = 'CFMController' . ucfirst($page);
+    $controller = new $controller_class();
+    $controller->execute();
+  }
+}
 
+// Add the Contact Form Builder button.
+function contact_form_maker_add_button($buttons) {
+  array_push($buttons, "contact_form_maker_mce");
+  return $buttons;
+}
+
+// Register Contact Form Builder button.
+function contact_form_maker_register($plugin_array) {
+  $url = WD_CFM_URL . '/js/contact_form_maker_editor_button.js';
+  $plugin_array["contact_form_maker_mce"] = $url;
+  return $plugin_array;
+}
+
+function contact_form_maker_admin_ajax() {
+  ?>
+  <script>
+    var contact_form_maker_admin_ajax = '<?php echo add_query_arg(array('action' => 'CFMShortcode'), admin_url('admin-ajax.php')); ?>';
+    var contact_form_maker_plugin_url = '<?php echo WD_CFM_URL; ?>';
+  </script>
+  <?php
+}
+add_action('admin_head', 'contact_form_maker_admin_ajax');
+
+function cfm_do_output_buffer() {
+  ob_start();
+}
+add_action('init', 'cfm_do_output_buffer');
+
+function wd_contact_form_builder($id) {
+  require_once (WD_CFM_DIR . '/frontend/controllers/CFMControllerForm_maker.php');
+  $controller = new CFMControllerForm_maker();
+  $form = $controller->execute($id);
+  echo $form;
+}
+
+function wd_contact_form_builder_shortcode($attrs) {
+  ob_start();
+  wd_contact_form_builder($attrs['id']);
+  return str_replace(array("\r\n", "\n", "\r"), '', ob_get_clean());
+  // return ob_get_clean();
+}
+add_shortcode('Contact_Form_Builder', 'wd_contact_form_builder_shortcode');
+
+// Add the Contact Form Builder button to editor.
+add_action('wp_ajax_CFMShortcode', 'contact_form_maker_ajax');
+add_filter('mce_external_plugins', 'contact_form_maker_register');
+add_filter('mce_buttons', 'contact_form_maker_add_button', 0);
+
+// Contact Form Builder Widget.
+if (class_exists('WP_Widget')) {
+  require_once(WD_CFM_DIR . '/admin/controllers/CFMControllerWidget.php');
+  add_action('widgets_init', create_function('', 'return register_widget("CFMControllerWidget");'));
+}
+
+// Activate plugin.
+function contact_form_maker_activate() {
+  $version = get_option("wd_contact_form_maker_version");
+  $new_version = '1.0.34';
+  if ($version && version_compare($version, $new_version, '<')) {
+    require_once WD_CFM_DIR . "/contact-form-builder-update.php";
+    contact_form_maker_update($version);
+    update_option("wd_contact_form_maker_version", $new_version);
+  }
+  else {
+    require_once WD_CFM_DIR . "/contact-form-builder-insert.php";
+    contact_form_maker_insert();
+    add_option("wd_contact_form_maker_version", $new_version, '', 'no');
+  }
+}
+register_activation_hook(__FILE__, 'contact_form_maker_activate');
+
+if (!isset($_GET['action']) || $_GET['action'] != 'deactivate') {
+  add_action('admin_init', 'contact_form_maker_activate');
+}
+
+// Contact Form Builder manage page styles.
+function contact_form_maker_manage_styles() {
+  $version = get_option("wd_contact_form_maker_version");
+  wp_admin_css('thickbox');
+  wp_enqueue_style('contact_form_maker_tables', WD_CFM_URL . '/css/contact_form_maker_tables.css', array(), $version);
+  wp_enqueue_style('contact_form_maker_first', WD_CFM_URL . '/css/contact_form_maker_first.css', array(), $version);
+  wp_enqueue_style('jquery-ui', WD_CFM_URL . '/css/jquery-ui-1.10.3.custom.css');
+  wp_enqueue_style('contact_form_maker_style', WD_CFM_URL . '/css/style.css', array(), $version);
+  wp_enqueue_style('contact_form_maker_codemirror', WD_CFM_URL . '/css/codemirror.css');
+  wp_enqueue_style('contact_form_maker_layout', WD_CFM_URL . '/css/contact_form_maker_layout.css', array(), $version);
+}
+// Contact Form Builder manage page scripts.
+function contact_form_maker_manage_scripts() {
+  $version = get_option("wd_contact_form_maker_version");
+  wp_enqueue_script('thickbox');
+  wp_enqueue_script('jquery');
+  wp_enqueue_script('jquery-ui-widget');
+  wp_enqueue_script('jquery-ui-sortable');
+
+  wp_enqueue_script('gmap_form_api', 'https://maps.google.com/maps/api/js?sensor=false');
+  wp_enqueue_script('gmap_form', WD_CFM_URL . '/js/if_gmap_back_end.js');
+
+  wp_enqueue_script('contact_form_maker_admin', WD_CFM_URL . '/js/contact_form_maker_admin.js', array(), $version);
+  wp_enqueue_script('contact_form_maker_manage', WD_CFM_URL . '/js/contact_form_maker_manage.js', array(), $version);
+
+  wp_enqueue_script('contactformmaker', WD_CFM_URL . '/js/contactformmaker.js', array(), $version);
+
+  wp_enqueue_script('contact_form_maker_codemirror', WD_CFM_URL . '/js/layout/codemirror.js', array(), '2.3');
+  wp_enqueue_script('contact_form_maker_clike', WD_CFM_URL . '/js/layout/clike.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_formatting', WD_CFM_URL . '/js/layout/formatting.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_css', WD_CFM_URL . '/js/layout/css.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_javascript', WD_CFM_URL . '/js/layout/javascript.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_xml', WD_CFM_URL . '/js/layout/xml.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_php', WD_CFM_URL . '/js/layout/php.js', array(), '1.0.0');
+  wp_enqueue_script('contact_form_maker_htmlmixed', WD_CFM_URL . '/js/layout/htmlmixed.js', array(), '1.0.0');
+
+  wp_localize_script('contactformmaker', 'fmc_objectL10n', array(
+    'fmc_Only_letters'  => __('Only letters, numbers, hyphens and underscores are allowed.', 'contact_form_maker'),
+    'fmc_name_attribute_required'  => __('The name of the attribute is required.', 'contact_form_maker'),
+    'fmc_cannot_add_style_attribute'  => __('Sorry, you cannot add a style attribute here. Use "Class name" instead.', 'contact_form_maker'),
+    'fmc_name_attribute_cannotbe_number'  => __('The name of the attribute cannot be a number.', 'contact_form_maker'),
+    'fmc_name_attribute_cannot_containspace'  => __('The name of the attribute cannot contain a space.', 'contact_form_maker'),
+    'fmc_labels_mustbe_unique'  => __('Sorry, the labels must be unique.', 'contact_form_maker'),
+    'fmc_field_label_required'  => __('The field label is required.', 'contact_form_maker'),
+    'fmc_select_element_add'  => __('Please select an element to add.', 'contact_form_maker'),
+    'fmc_Afghanistan'  => __('Afghanistan', 'contact_form_maker'),
+    'fmc_Albania'  => __('Albania', 'contact_form_maker'),
+    'fmc_Algeria'  => __('Algeria', 'contact_form_maker'),
+    'fmc_Andorra'  => __('Andorra', 'contact_form_maker'),
+    'fmc_Angola'  => __('Angola', 'contact_form_maker'),
+    'fmc_AntiguaandBarbuda'  => __('Antigua and Barbuda', 'contact_form_maker'),
+    'fmc_Argentina'  => __('Argentina', 'contact_form_maker'),
+    'fmc_Armenia'  => __('Armenia', 'contact_form_maker'),
+    'fmc_Australia'  => __('Australia', 'contact_form_maker'),
+    'fmc_Austria'  => __('Austria', 'contact_form_maker'),
+    'fmc_Azerbaijan'  => __('Azerbaijan', 'contact_form_maker'),
+    'fmc_Bahamas'  => __('Bahamas', 'contact_form_maker'),
+    'fmc_Bahrain'  => __('Bahrain', 'contact_form_maker'),
+    'fmc_Bangladesh'  => __('Bangladesh', 'contact_form_maker'),
+    'fmc_Barbados'  => __('Barbados', 'contact_form_maker'),
+    'fmc_Belarus'  => __('Belarus', 'contact_form_maker'),
+    'fmc_Belgium'  => __('Belgium', 'contact_form_maker'),
+    'fmc_Belize'  => __('Belize', 'contact_form_maker'),
+    'fmc_Benin'  => __('Benin', 'contact_form_maker'),
+    'fmc_Bhutan'  => __('Bhutan', 'contact_form_maker'),
+    'fmc_Bolivia'  => __('Bolivia', 'contact_form_maker'),
+    'fmc_BosniaandHerzegovina'  => __('Bosnia and Herzegovina', 'contact_form_maker'),
+    'fmc_Botswana'  => __('Botswana', 'contact_form_maker'),
+    'fmc_Brazil'  => __('Brazil', 'contact_form_maker'),
+    'fmc_Brunei'  => __('Brunei', 'contact_form_maker'),
+    'fmc_Bulgaria'  => __('Bulgaria', 'contact_form_maker'),
+    'fmc_BurkinaFaso'  => __('Burkina Faso', 'contact_form_maker'),
+    'fmc_Burundi'  => __('Burundi', 'contact_form_maker'),
+    'fmc_Cambodia'  => __('Cambodia', 'contact_form_maker'),
+    'fmc_Cameroon'  => __('Cameroon', 'contact_form_maker'),
+    'fmc_Canada'  => __('Canada', 'contact_form_maker'),
+    'fmc_CapeVerde'  => __('Cape Verde', 'contact_form_maker'),
+    'fmc_CentralAfricanRepublic'  => __('Central African Republic', 'contact_form_maker'),
+    'fmc_Chad'  => __('Chad', 'contact_form_maker'),
+    'fmc_Chile'  => __('Chile', 'contact_form_maker'),
+    'fmc_China'  => __('China', 'contact_form_maker'),
+    'fmc_Colombi'  => __('Colombi', 'contact_form_maker'),
+    'fmc_Comoros'  => __('Comoros', 'contact_form_maker'),
+    'fmc_CongoBrazzaville'  => __('Congo (Brazzaville)', 'contact_form_maker'),
+    'fmc_Congo'  => __('Congo', 'contact_form_maker'),
+    'fmc_CostaRica'  => __('Costa Rica', 'contact_form_maker'),
+    'fmc_CotedIvoire'  => __("Cote d'Ivoire", 'contact_form_maker'),
+    'fmc_Croatia'  => __('Croatia', 'contact_form_maker'),
+    'fmc_Cuba'  => __('Cuba', 'contact_form_maker'),
+    'fmc_Cyprus'  => __('Cyprus', 'contact_form_maker'),
+    'fmc_CzechRepublic'  => __('Czech Republic', 'contact_form_maker'),
+    'fmc_Denmark'  => __('Denmark', 'contact_form_maker'),
+    'fmc_Djibouti'  => __('Djibouti', 'contact_form_maker'),
+    'fmc_Dominica'  => __('Dominica', 'contact_form_maker'),
+    'fmc_DominicanRepublic'  => __('Dominican Republic', 'contact_form_maker'),
+    'fmc_EastTimorTimorTimur'  => __('East Timor (Timor Timur)', 'contact_form_maker'),
+    'fmc_Ecuador'  => __('Ecuador', 'contact_form_maker'),
+    'fmc_Egypt'  => __('Egypt', 'contact_form_maker'),
+    'fmc_ElSalvador'  => __('El Salvador', 'contact_form_maker'),
+    'fmc_EquatorialGuinea'  => __('Equatorial Guinea', 'contact_form_maker'),
+    'fmc_Eritrea'  => __('Eritrea', 'contact_form_maker'),
+    'fmc_Estonia'  => __('Estonia', 'contact_form_maker'),
+    'fmc_Ethiopia'  => __('Ethiopia', 'contact_form_maker'),
+    'fmc_Fiji'  => __('Fiji', 'contact_form_maker'),
+    'fmc_Finland'  => __('Finland', 'contact_form_maker'),
+    'fmc_France'  => __('France', 'contact_form_maker'),
+    'fmc_Gabon'  => __('Gabon', 'contact_form_maker'),
+    'fmc_GambiaThe'  => __('Gambia, The', 'contact_form_maker'),
+    'fmc_Georgia'  => __('Georgia', 'contact_form_maker'),
+    'fmc_Germany'  => __('Germany', 'contact_form_maker'),
+    'fmc_Ghana'  => __('Ghana', 'contact_form_maker'),
+    'fmc_Greece'  => __('Greece', 'contact_form_maker'),
+    'fmc_Grenada'  => __('Grenada', 'contact_form_maker'),
+    'fmc_Guatemala'  => __('Guatemala', 'contact_form_maker'),
+    'fmc_Guinea'  => __('Guinea', 'contact_form_maker'),
+    'fmc_GuineaBissau'  => __('Guinea-Bissau', 'contact_form_maker'),
+    'fmc_Guyana'  => __('Guyana', 'contact_form_maker'),
+    'fmc_Haiti'  => __('Haiti', 'contact_form_maker'),
+    'fmc_Honduras'  => __('Honduras', 'contact_form_maker'),
+    'fmc_Hungary'  => __('Hungary', 'contact_form_maker'),
+    'fmc_Iceland'  => __('Iceland', 'contact_form_maker'),
+    'fmc_India'  => __('India', 'contact_form_maker'),
+    'fmc_Indonesia'  => __('Indonesia', 'contact_form_maker'),
+    'fmc_Iran'  => __('Iran', 'contact_form_maker'),
+    'fmc_Iraq'  => __('Iraq', 'contact_form_maker'),
+    'fmc_Ireland'  => __('Ireland', 'contact_form_maker'),
+    'fmc_Israel'  => __('Israel', 'contact_form_maker'),
+    'fmc_Italy'  => __('Italy', 'contact_form_maker'),
+    'fmc_Jamaica'  => __('Jamaica', 'contact_form_maker'),
+    'fmc_Japan'  => __('Japan', 'contact_form_maker'),
+    'fmc_Jordan'  => __('Jordan', 'contact_form_maker'),
+    'fmc_Kazakhstan'  => __('Kazakhstan', 'contact_form_maker'),
+    'fmc_Kenya'  => __('Kenya', 'contact_form_maker'),
+    'fmc_Kiribati'  => __('Kiribati', 'contact_form_maker'),
+    'fmc_KoreaNorth'  => __('Korea, North', 'contact_form_maker'),
+    'fmc_KoreaSouth'  => __('Korea, South', 'contact_form_maker'),
+    'fmc_Kuwait'  => __('Kuwait', 'contact_form_maker'),
+    'fmc_Kyrgyzstan'  => __('Kyrgyzstan', 'contact_form_maker'),
+    'fmc_Laos'  => __('Laos', 'contact_form_maker'),
+    'fmc_Latvia'  => __('Latvia', 'contact_form_maker'),
+    'fmc_Lebanon'  => __('Lebanon', 'contact_form_maker'),
+    'fmc_Lesotho'  => __('Lesotho', 'contact_form_maker'),
+    'fmc_Liberia'  => __('Liberia', 'contact_form_maker'),
+    'fmc_Libya'  => __('Libya', 'contact_form_maker'),
+    'fmc_Liechtenstein'  => __('Liechtenstein', 'contact_form_maker'),
+    'fmc_Lithuania'  => __('Lithuania', 'contact_form_maker'),
+    'fmc_Luxembourg'  => __('Luxembourg', 'contact_form_maker'),
+    'fmc_Macedonia'  => __('Macedonia', 'contact_form_maker'),
+    'fmc_Madagascar'  => __('Madagascar', 'contact_form_maker'),
+    'fmc_Malawi'  => __('Malawi', 'contact_form_maker'),
+    'fmc_Malaysia'  => __('Malaysia', 'contact_form_maker'),
+    'fmc_Maldives'  => __('Maldives', 'contact_form_maker'),
+    'fmc_Mali'  => __('Mali', 'contact_form_maker'),
+    'fmc_Malta'  => __('Malta', 'contact_form_maker'),
+    'fmc_MarshallIslands'  => __('Marshall Islands', 'contact_form_maker'),
+    'fmc_Mauritania'  => __('Mauritania', 'contact_form_maker'),
+    'fmc_Mauritius'  => __('Mauritius', 'contact_form_maker'),
+    'fmc_Mexico'  => __('Mexico', 'contact_form_maker'),
+    'fmc_Micronesia'  => __('Micronesia', 'contact_form_maker'),
+    'fmc_Moldova'  => __('Moldova', 'contact_form_maker'),
+    'fmc_Monaco'  => __('Monaco', 'contact_form_maker'),
+    'fmc_Mongolia'  => __('Mongolia', 'contact_form_maker'),
+    'fmc_Morocco'  => __('Morocco', 'contact_form_maker'),
+    'fmc_Mozambique'  => __('Mozambique', 'contact_form_maker'),
+    'fmc_Myanmar'  => __('Myanmar', 'contact_form_maker'),
+    'fmc_Namibia'  => __('Namibia', 'contact_form_maker'),
+    'fmc_Nauru'  => __('Nauru', 'contact_form_maker'),
+    'fmc_Nepa'  => __('Nepa', 'contact_form_maker'),
+    'fmc_Netherlands'  => __('Netherlands', 'contact_form_maker'),
+    'fmc_NewZealand'  => __('New Zealand', 'contact_form_maker'),
+    'fmc_Nicaragua'  => __('Nicaragua', 'contact_form_maker'),
+    'fmc_Niger'  => __('Niger', 'contact_form_maker'),
+    'fmc_Nigeria'  => __('Nigeria', 'contact_form_maker'),
+    'fmc_Norway'  => __('Norway', 'contact_form_maker'),
+    'fmc_Oman'  => __('Oman', 'contact_form_maker'),
+    'fmc_Pakistan'  => __('Pakistan', 'contact_form_maker'),
+    'fmc_Palau'  => __('Palau', 'contact_form_maker'),
+    'fmc_Panama'  => __('Panama', 'contact_form_maker'),
+    'fmc_PapuaNewGuinea'  => __('Papua New Guinea', 'contact_form_maker'),
+    'fmc_Paraguay'  => __('Paraguay', 'contact_form_maker'),
+    'fmc_Peru'  => __('Peru', 'contact_form_maker'),
+    'fmc_Philippines'  => __('Philippines', 'contact_form_maker'),
+    'fmc_Poland'  => __('Poland', 'contact_form_maker'),
+    'fmc_Portugal'  => __('Portugal', 'contact_form_maker'),
+    'fmc_Qatar'  => __('Qatar', 'contact_form_maker'),
+    'fmc_Romania'  => __('Romania', 'contact_form_maker'),
+    'fmc_Russia'  => __('Russia', 'contact_form_maker'),
+    'fmc_Rwanda'  => __('Rwanda', 'contact_form_maker'),
+    'fmc_SaintKittsandNevis'  => __('Saint Kitts and Nevis', 'contact_form_maker'),
+    'fmc_SaintLucia'  => __('Saint Lucia', 'contact_form_maker'),
+    'fmc_SaintVincent'  => __('Saint Vincent', 'contact_form_maker'),
+    'fmc_Samoa'  => __('Samoa', 'contact_form_maker'),
+    'fmc_SanMarino'  => __('San Marino', 'contact_form_maker'),
+    'fmc_SaoTomeandPrincipe'  => __('Sao Tome and Principe', 'contact_form_maker'),
+    'fmc_SaudiArabia'  => __('Saudi Arabia', 'contact_form_maker'),
+    'fmc_Senegal'  => __('Senegal', 'contact_form_maker'),
+    'fmc_SerbiandMontenegro'  => __('Serbia and Montenegro', 'contact_form_maker'),
+    'fmc_Seychelles'  => __('Seychelles', 'contact_form_maker'),
+    'fmc_SierraLeone'  => __('Sierra Leone', 'contact_form_maker'),
+    'fmc_Singapore'  => __('Singapore', 'contact_form_maker'),
+    'fmc_Slovakia'  => __('Slovakia', 'contact_form_maker'),
+    'fmc_Slovenia'  => __('Slovenia', 'contact_form_maker'),
+    'fmc_SolomonIslands'  => __('Solomon Islands', 'contact_form_maker'),
+    'fmc_Somalia'  => __('Somalia', 'contact_form_maker'),
+    'fmc_SouthAfrica'  => __('South Africa', 'contact_form_maker'),
+    'fmc_Spain'  => __('Spain', 'contact_form_maker'),
+    'fmc_SriLanka'  => __('Sri Lanka', 'contact_form_maker'),
+    'fmc_Sudan'  => __('Sudan', 'contact_form_maker'),
+    'fmc_Suriname'  => __('Suriname', 'contact_form_maker'),
+    'fmc_Swaziland'  => __('Swaziland', 'contact_form_maker'),
+    'fmc_Sweden'  => __('Sweden', 'contact_form_maker'),
+    'fmc_Switzerland'  => __('Switzerland', 'contact_form_maker'),
+    'fmc_Syria'  => __('Syria', 'contact_form_maker'),
+    'fmc_Taiwan'  => __('Taiwan', 'contact_form_maker'),
+    'fmc_Tajikistan'  => __('Tajikistan', 'contact_form_maker'),
+    'fmc_Tanzania'  => __('Tanzania', 'contact_form_maker'),
+    'fmc_Thailand'  => __('Thailand', 'contact_form_maker'),
+    'fmc_Togo'  => __('Togo', 'contact_form_maker'),
+    'fmc_Tonga'  => __('Tonga', 'contact_form_maker'),
+    'fmc_TrinidadandTobago'  => __('Trinidad and Tobago', 'contact_form_maker'),
+    'fmc_Tunisia'  => __('Tunisia', 'contact_form_maker'),
+    'fmc_Turkey'  => __('Turkey', 'contact_form_maker'),
+    'fmc_Turkmenistan'  => __('Turkmenistan', 'contact_form_maker'),
+    'fmc_Tuvalu'  => __('Tuvalu', 'contact_form_maker'),
+    'fmc_Uganda'  => __('Uganda', 'contact_form_maker'),
+    'fmc_Ukraine'  => __('Ukraine', 'contact_form_maker'),
+    'fmc_UnitedArabEmirates'  => __('United Arab Emirates', 'contact_form_maker'),
+    'fmc_UnitedKingdom'  => __('United Kingdom', 'contact_form_maker'),
+    'fmc_UnitedStates'  => __('United States', 'contact_form_maker'),
+    'fmc_Uruguay'  => __('Uruguay', 'contact_form_maker'),
+    'fmc_Uzbekistan'  => __('Uzbekistan', 'contact_form_maker'),
+    'fmc_Vanuatu'  => __('Vanuatu', 'contact_form_maker'),
+    'fmc_VaticanCity'  => __('Vatican City', 'contact_form_maker'),
+    'fmc_Venezuela'  => __('Venezuela', 'contact_form_maker'),
+    'fmc_Vietnam'  => __('Vietnam', 'contact_form_maker'),
+    'fmc_Yemen'  => __('Yemen', 'contact_form_maker'),
+    'fmc_Zambia'  => __('Zambia', 'contact_form_maker'),
+    'fmc_Zimbabwe'  => __('Zimbabwe', 'contact_form_maker'),
+    'fmc_Alabama'  => __('Alabama', 'contact_form_maker'),
+    'fmc_Alaska'  => __('Alaska', 'contact_form_maker'),
+    'fmc_Arizona'  => __('Arizona', 'contact_form_maker'),
+    'fmc_Arkansas'  => __('Arkansas', 'contact_form_maker'),
+    'fmc_California'  => __('California', 'contact_form_maker'),
+    'fmc_Colorado'  => __('Colorado', 'contact_form_maker'),
+    'fmc_Connecticut'  => __('Connecticut', 'contact_form_maker'),
+    'fmc_Delaware'  => __('Delaware', 'contact_form_maker'),
+    'fmc_DistrictOfColumbia'  => __('District Of Columbia', 'contact_form_maker'),
+    'fmc_Florida'  => __('Florida', 'contact_form_maker'),
+    'fmc_Georgia'  => __('Georgia', 'contact_form_maker'),
+    'fmc_Hawaii'  => __('Hawaii', 'contact_form_maker'),
+    'fmc_Idaho'  => __('Idaho', 'contact_form_maker'),
+    'fmc_Illinois'  => __('Illinois', 'contact_form_maker'),
+    'fmc_Indiana'  => __('Indiana', 'contact_form_maker'),
+    'fmc_Iowa'  => __('Iowa', 'contact_form_maker'),
+    'fmc_Kansas'  => __('Kansas', 'contact_form_maker'),
+    'fmc_Kentucky'  => __('Kentucky', 'contact_form_maker'),
+    'fmc_Louisiana'  => __('Louisiana', 'contact_form_maker'),
+    'fmc_Maine'  => __('Maine', 'contact_form_maker'),
+    'fmc_Maryland'  => __('Maryland', 'contact_form_maker'),
+    'fmc_Massachusetts'  => __('Massachusetts', 'contact_form_maker'),
+    'fmc_Michigan'  => __('Michigan', 'contact_form_maker'),
+    'fmc_Minnesota'  => __('Minnesota', 'contact_form_maker'),
+    'fmc_Mississippi'  => __('Mississippi', 'contact_form_maker'),
+    'fmc_Missouri'  => __('Missouri', 'contact_form_maker'),
+    'fmc_Montana'  => __('Montana', 'contact_form_maker'),
+    'fmc_Nebraska'  => __('Nebraska', 'contact_form_maker'),
+    'fmc_Nevada'  => __('Nevada', 'contact_form_maker'),
+    'fmc_NewHampshire'  => __('New Hampshire', 'contact_form_maker'),
+    'fmc_NewJersey'  => __('New Jersey', 'contact_form_maker'),
+    'fmc_NewMexico'  => __('New Mexico', 'contact_form_maker'),
+    'fmc_NewYork'  => __('New York', 'contact_form_maker'),
+    'fmc_NorthCarolina'  => __('North Carolina', 'contact_form_maker'),
+    'fmc_NorthDakota'  => __('North Dakota', 'contact_form_maker'),
+    'fmc_Ohio'  => __('Ohio', 'contact_form_maker'),
+    'fmc_Oklahoma'  => __('Oklahoma', 'contact_form_maker'),
+    'fmc_Oregon'  => __('Oregon', 'contact_form_maker'),
+    'fmc_Pennsylvania'  => __('Pennsylvania', 'contact_form_maker'),
+    'fmc_RhodeIsland'  => __('Rhode Island', 'contact_form_maker'),
+    'fmc_SouthCarolina'  => __('South Carolina', 'contact_form_maker'),
+    'fmc_SouthDakota'  => __('South Dakota', 'contact_form_maker'),
+    'fmc_Tennessee'  => __('Tennessee', 'contact_form_maker'),
+    'fmc_Texas'  => __('Texas', 'contact_form_maker'),
+    'fmc_Utah'  => __('Utah', 'contact_form_maker'),
+    'fmc_Vermont'  => __('Vermont', 'contact_form_maker'),
+    'fmc_Virginia'  => __('Virginia', 'contact_form_maker'),
+    'fmc_Washington'  => __('Washington', 'contact_form_maker'),
+    'fmc_WestVirginia'  => __('West Virginia', 'contact_form_maker'),
+    'fmc_Wisconsin'  => __('Wisconsin', 'contact_form_maker'),
+    'fmc_Wyoming'  => __('Wyoming', 'contact_form_maker'),
+
+    'fmc_Enable_field'  => __('Enable field', 'contact_form_maker'),
+    'fmc_Submit_button_label'  => __('Submit button label', 'contact_form_maker'),
+    'fmc_Submit_function'  => __('Submit function', 'contact_form_maker'),
+    'fmc_Reset_button_label'  => __('Reset button label', 'contact_form_maker'),
+    'fmc_Display_reset_button'  => __('Display Reset button', 'contact_form_maker'),
+    'fmc_Reset_function'  => __('Reset function', 'contact_form_maker'),
+    'fmc_Class_name'  => __('Class name', 'contact_form_maker'),
+    'fmc_Additional_attributes'  => __('Additional Attributes', 'contact_form_maker'),
+    'fmc_Name'  => __('Name', 'contact_form_maker'),
+    'fmc_Value'  => __('Value', 'contact_form_maker'),
+    'fmc_Field_label'  => __('Field label', 'contact_form_maker'),
+    'fmc_Field_label_size'  => __('Field label size(px) ', 'contact_form_maker'),
+    'fmc_Field_label_position'  => __('Field label position', 'contact_form_maker'),
+    'fmc_Required'  => __('Required', 'contact_form_maker'),
+    'fmc_Field_size'  => __('Field size(px)', 'contact_form_maker'),
+    'fmc_Value_empty'  => __('Value if empty', 'contact_form_maker'),
+    'fmc_Allow_only_unique_values'  => __('Allow only unique values', 'contact_form_maker'),
+    'fmc_Deactive_class_name'  => __('Deactive Class name', 'contact_form_maker'),
+    'fmc_Active_class_name'  => __('Active Class name', 'contact_form_maker'),
+    'fmc_Name_format'  => __('Name Format', 'contact_form_maker'),
+    'fmc_Overall_size'  => __('Overall size(px)', 'contact_form_maker'),
+    'fmc_Disable_field'  => __('Disable field(s)', 'contact_form_maker'),
+    'fmc_Use_list_US_states'  => __('Use list for US states', 'contact_form_maker'),
+    'fmc_Public_key'  => __('Public key', 'contact_form_maker'),
+    'fmc_Private_key'  => __('Private key', 'contact_form_maker'),
+    'fmc_Recaptcha_theme'  => __('Recaptcha Theme', 'contact_form_maker'),
+    'fmc_Red'  => __('Red', 'contact_form_maker'),
+    'fmc_White'  => __('White', 'contact_form_maker'),
+    'fmc_Blackglass'  => __('Blackglass', 'contact_form_maker'),
+    'fmc_Clean'  => __('Clean', 'contact_form_maker'),
+    'fmc_Recaptcha_doesnt_display_backend'  => __("Recaptcha doesn't display in back end", 'contact_form_maker'),
+    'fmc_Captcha_size'  => __('Captcha size', 'contact_form_maker'),
+    'fmc_Relative_position'  => __('Relative Position', 'contact_form_maker'),
+    'fmc_Rows_columns'  => __('Rows/Columns', 'contact_form_maker'),
+    'fmc_Randomize_frontend'  => __('Randomize in frontend', 'contact_form_maker'),
+    'fmc_Allow_other'  => __('Allow other', 'contact_form_maker'),
+    'fmc_Options'  => __('Options', 'contact_form_maker'),
+    'fmc_Check_emptyvalue_checkbox'  => __('IMPORTANT! Check the "Empty value" checkbox only if you want the option to be considered as empty.', 'contact_form_maker'),
+    'fmc_Option_name'  => __('Option name', 'contact_form_maker'),
+    'fmc_Price'  => __('Price', 'contact_form_maker'),
+    'fmc_Empty_value'  => __('Empty value', 'contact_form_maker'),
+    'fmc_Delete'  => __('Delete', 'contact_form_maker'),
+    'fmc_Drag_change_position'  => __('Drag the marker to change marker position.', 'contact_form_maker'),
+    'fmc_Location'  => __('Location', 'contact_form_maker'),
+    'fmc_Map_size'  => __('Map size', 'contact_form_maker'),
+    'fmc_Marker_info'  => __('Marker Info', 'contact_form_maker'),
+    'fmc_Address'  => __('Address', 'contact_form_maker'),
+    'fmc_Longitude'  => __('Longitude', 'contact_form_maker'),
+    'fmc_Latitude'  => __('Latitude', 'contact_form_maker'),
+    'fmc_add'  => __('add', 'contact_form_maker'),
+    'fmc_Disable_thefield'  => __('Disable the field', 'contact_form_maker'),
+    'fmc_Enable_thefield'  => __('Enable the field', 'contact_form_maker'),
+    'fmc_Edit_field'  => __('Edit the field', 'contact_form_maker'),
+    'fmc_Dublicate_field'  => __('Dublicate the field', 'contact_form_maker'),
+    'fmc_Move_fieldup'  => __('Move the field up', 'contact_form_maker'),
+    'fmc_Move_fielddown'  => __('Move the field down', 'contact_form_maker'),
+    'fmc_Move_fieldright'  => __('Move the field to the right', 'contact_form_maker'),
+    'fmc_Move_fieldleft'  => __('Move the field to the left', 'contact_form_maker'),
+    'fmc_Left'  => __('Left', 'contact_form_maker'),
+    'fmc_Top'  => __('Top', 'contact_form_maker'),
+    'fmc_Use_field_allow'  => __('Use the field to allow the user to choose whether to receive a copy of the submitted form or not. Do not forget to fill in User Email section in Email Options in advance.', 'contact_form_maker'),
+    'fmc_labels_fields_editable'  => __('The labels of the fields are editable. Please, click the label to edit.', 'contact_form_maker'),
+    'fmc_Normal'  => __('Normal', 'contact_form_maker'),
+    'fmc_Extended'  => __('Extended', 'contact_form_maker'),
+    'fmc_Use_US_states'  => __('Use US states', 'contact_form_maker'),
+    'fmc_Vertical'  => __('Vertical', 'contact_form_maker'),
+    'fmc_Horizontal'  => __('Horizontal', 'contact_form_maker'),
+    'fmc_Width'  => __('Width', 'contact_form_maker'),
+    'fmc_Height'  => __('Height', 'contact_form_maker'),
+    'fmc_not_valid_email_address' => __('This is not a valid email address.', 'contact_form_maker'),
+    'fmc_Edit' => __('Edit', 'contact_form_maker'),
+    'fmc_Items_succesfully_saved' => __('Items Succesfully Saved.', 'contact_form_maker'),
+    'fmc_Delete_email' => __('Delete Email', 'contact_form_maker'),
+    'fmc_Items_succesfully_saved' => __('Items Succesfully Saved.', 'contact_form_maker'),
+    'fmc_SaveIP' => __('Save IP', 'contact_form_maker'),
+    'fmc_field_required' => __('* field is required.', 'contact_form_maker'),
+    'fmc_Validation' => __('Validation (Regular Exp.)', 'contact_form_maker'),
+    'fmc_reg_exp' => __('Regular Expression', 'contact_form_maker'),
+    'fmc_common_reg_exp' => __('Common Regular Expressions', 'contact_form_maker'),
+    'fmc_case_insensitive' => __('Case Insensitive', 'contact_form_maker'),
+    'fmc_alert_message' => __('Alert Message', 'contact_form_maker'),
+    'fmc_select' => __('Select', 'contact_form_maker'),
+    'fmc_name_latin_letters' => __('Name(Latin letters and some symbols)', 'contact_form_maker'),
+    'fmc_phone_number' => __('Phone Number(Digits and dashes)', 'contact_form_maker'),
+    'fmc_integer_number' => __('Integer Number', 'contact_form_maker'),
+    'fmc_decimal_number' => __('Decimal Number', 'contact_form_maker'),
+    'fmc_latin_letters_and_numbers' => __('Latin letters and Numbers', 'contact_form_maker'),
+    'fmc_credit_card' => __('Credit Card (16 Digits)', 'contact_form_maker'),
+    'fmc_zip_code' => __('Zip Code', 'contact_form_maker'),
+    'fmc_IP_address' => __('IP Address', 'contact_form_maker'),
+    'fmc_date_mdy' => __('Date m/d/y (e.g. 12/21/2013)', 'contact_form_maker'),
+    'fmc_date_dmy' => __('Date d.m.y (e.g. 21.12.2013)', 'contact_form_maker'),
+    'fmc_date_format' => __('MySQL Date Format (2013-12-21)', 'contact_form_maker'),
+  ));
+}
+
+function contact_form_maker_styles() {
+  wp_enqueue_style('contact_form_maker_tables', WD_CFM_URL . '/css/contact_form_maker_tables.css', array(), get_option("wd_contact_form_maker_version"));
+}
+function contact_form_maker_scripts() {
+  wp_enqueue_script('contact_form_maker_admin', WD_CFM_URL . '/js/contact_form_maker_admin.js', array(), get_option("wd_contact_form_maker_version"));
+}
+
+function contact_form_maker_licensing_styles() {
+  wp_enqueue_style('contact_form_maker_licensing', WD_CFM_URL . '/css/contact_form_maker_licensing.css');
+}
+
+function contact_form_maker_front_end_scripts() {
+  $version = get_option("wd_contact_form_maker_version");
+  wp_enqueue_script('jquery');
+  wp_enqueue_script('jquery-ui-widget');
+  wp_enqueue_script('jquery-effects-shake');
+
+  wp_enqueue_style('jquery-ui', WD_CFM_URL . '/css/jquery-ui-1.10.3.custom.css');
+  wp_enqueue_style('contact_form_maker_frontend', WD_CFM_URL . '/css/contact_form_maker_frontend.css');
+
+  wp_enqueue_script('gmap_form_api', 'https://maps.google.com/maps/api/js?sensor=false');
+  wp_enqueue_script('gmap_form', WD_CFM_URL . '/js/if_gmap_front_end.js');
+
+  wp_enqueue_script('cfm_main_front_end', WD_CFM_URL . '/js/cfm_main_front_end.js', array(), $version);
+}
+add_action('wp_enqueue_scripts', 'contact_form_maker_front_end_scripts');
+
+// Languages localization.
+function contact_form_maker_language_load() {
+  load_plugin_textdomain('contact_form_maker', FALSE, basename(dirname(__FILE__)) . '/languages');
+}
+add_action('init', 'contact_form_maker_language_load');
+
+if (is_admin() && (!defined('DOING_AJAX') || !DOING_AJAX)) {
+	include_once(WD_CFM_DIR . '/contact-form-builder-notices.php');
+  new CFM_Notices();
+}
+?>
